@@ -53,7 +53,7 @@ class JobServiceImplTest {
 
     // ---- Helper ----
     private Job buildJob(Long id, String name, Integer active) {
-        UserCommon uc = UserCommon.builder().id(1L).phone("0123").sendSmsNumber("1").build();
+        UserCommon uc = UserCommon.builder().id(1L).phone("0123").sendSmsNumber(1).build();
         JobDefault jd = JobDefault.builder().id(10L).name("DefaultJob").build();
         return Job.builder().id(id).name(name).job("Dev").salary("1000").des("desc")
                 .address("HCM").active(active).lat(10.0).lng(106.0)
@@ -258,7 +258,7 @@ class JobServiceImplTest {
     void testListJobsCompleted_Found() {
         UserParamDTO1 params = new UserParamDTO1();
         params.setUserId(1L);
-        Paging paging = new Paging(1, 10);
+        com.resourceservice.utilsmodule.utils.modelCustom.Paging paging = new com.resourceservice.utilsmodule.utils.modelCustom.Paging(1, 10);
         params.setPaging(paging);
 
         Job job = buildJob(1L, "Test", 1);
@@ -275,7 +275,7 @@ class JobServiceImplTest {
     void testListJobsCompleted_Empty() {
         UserParamDTO1 params = new UserParamDTO1();
         params.setUserId(1L);
-        Paging paging = new Paging(1, 10);
+        com.resourceservice.utilsmodule.utils.modelCustom.Paging paging = new com.resourceservice.utilsmodule.utils.modelCustom.Paging(1, 10);
         params.setPaging(paging);
 
         Page<Job> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
@@ -346,7 +346,7 @@ class JobServiceImplTest {
     void testJobsToCsv_WithData() {
         Writer writer = new StringWriter();
         JobDataModel m1 = JobDataModel.builder().id(1L).name("N1").address("A1")
-                .distance(5.0).job("J1").number("2").salary("1000")
+                .distance(5.0).job("J1").number(2).salary("1000")
                 .des("D1").img("img1").creationdate(LocalDateTime.now())
                 .expdate(LocalDateTime.now().plusDays(30)).build();
 
@@ -375,7 +375,7 @@ class JobServiceImplTest {
         Job job = buildJob(1L, "TestJob", 1);
         job.setPhone("0123");
         job.setEmail("a@b.com");
-        job.setLevel("Senior");
+        job.setLevel(1);
         job.setImg("img.png");
         job.setWebsite("http://test.com");
         job.setType("FT");
@@ -424,5 +424,62 @@ class JobServiceImplTest {
         // ObjectMapperUtil.map may need to be mocked or tested as integration
         // This test verifies no exception is thrown
         assertDoesNotThrow(() -> jobService.convertToJdDto(job));
+    }
+
+    // ==================== TC_JS_082 ====================
+    @Test
+    @DisplayName("TC_JS_082: updateActiveJob - null active field should be handled gracefully")
+    void testUpdateActiveJob_NullActiveField() {
+        // BUG: job.getActive().equals(1) throws NPE when active is null
+        Job job = buildJob(1L, "Test", null);
+        when(jobRepo.findById(1L)).thenReturn(Optional.of(job));
+
+        ResponseEntity<ResponseObject> resp = jobService.updateActiveJob(1L);
+        // Expected: should handle null active gracefully and return 200
+        // Actual: NPE caught → returns 500
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+    }
+
+    // ==================== TC_JS_083 ====================
+    @Test
+    @DisplayName("TC_JS_083: listJobsCompleted - null paging should return error gracefully")
+    void testListJobsCompleted_NullPaging() {
+        // BUG: params.getPaging().getPage() throws NPE when paging is null
+        UserParamDTO1 params = new UserParamDTO1();
+        params.setUserId(1L);
+        params.setPaging(null);
+
+        ResponseEntity<ResponseObject> resp = jobService.listJobsCompleted(params);
+        // Expected: should validate paging and return 400 or handle gracefully with 200
+        // Actual: NPE caught → returns 500
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+    }
+
+    // ==================== TC_JS_084 ====================
+    @Test
+    @DisplayName("TC_JS_084: latestJobs - null paging should be handled")
+    void testLatestJobs_NullPaging() {
+        // BUG: params.getPaging().getPage() throws NPE when paging is null
+        LocationParamsDto params = new LocationParamsDto();
+        params.setPaging(null);
+
+        // Expected: graceful handling with proper error response
+        // Actual: NPE - no catch block for this, httpStatus remains null
+        assertDoesNotThrow(() -> jobService.latestJobs(params));
+    }
+
+    // ==================== TC_JS_085 ====================
+    @Test
+    @DisplayName("TC_JS_085: applyJob - null userId should be validated")
+    void testApplyJob_NullUserId() {
+        // BUG: freelancerRepo.findFreelancerByUserIdAndJobDefaultId(null, 10L)
+        // returns null → goes to else branch → returns response
+        // but no input validation for null userId
+        when(freelancerRepo.findFreelancerByUserIdAndJobDefaultId(isNull(), eq(10L))).thenReturn(null);
+
+        ResponseEntity<ResponseObject> resp = jobService.applyJob(null, 10L);
+        // Expected: should validate input and return 400 BAD_REQUEST
+        // Actual: returns 200 OK with NOT_EXISTED (no input validation)
+        assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
     }
 }

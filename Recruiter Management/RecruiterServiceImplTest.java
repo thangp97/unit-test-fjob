@@ -157,8 +157,6 @@ class RecruiterServiceImplTest {
     @DisplayName("TC_RS_007: updateStatusCandidate - Edge case - entity not found")
     void testUpdateStatusCandidate_EntityNotFound() {
         when(repo.findByUserAndFreelancer(1L, 99L)).thenReturn(Optional.empty());
-        // save(Optional.empty()) might throw or cause issue
-        when(repo.save(any())).thenThrow(new RuntimeException("Cannot save empty"));
 
         assertThrows(CommonException.class, () ->
                 recruiterService.updateStatusCandidate(1L, 99L, "2"));
@@ -197,7 +195,6 @@ class RecruiterServiceImplTest {
     @DisplayName("TC_RS_010: updateNoteRecruiterManagement - Edge case - entity not found")
     void testUpdateNoteRecruiterManagement_EntityNotFound() {
         when(repo.findByUserAndFreelancer(1L, 99L)).thenReturn(Optional.empty());
-        when(repo.save(any())).thenThrow(new RuntimeException("Cannot save empty"));
 
         assertThrows(CommonException.class, () ->
                 recruiterService.updateNoteRecruiterManagement(1L, 99L, "n"));
@@ -430,5 +427,62 @@ class RecruiterServiceImplTest {
 
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    // ==================== TC_RS_029 ====================
+    @Test
+    @DisplayName("TC_RS_029: addNewCandidate - BUG - note parameter is ignored, hardcoded to '0'")
+    void testAddNewCandidate_VerifyNoteIsSaved() {
+        // BUG: line 99 hardcodes entity.setNote("0") instead of using the 'note' parameter
+        UserCommon user = UserCommon.builder().id(1L).build();
+        when(userCommonRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(repo.save(any(RecruiterManagement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        recruiterService.addNewCandidate(1L, 10L, "important_note");
+
+        org.mockito.ArgumentCaptor<RecruiterManagement> captor =
+                org.mockito.ArgumentCaptor.forClass(RecruiterManagement.class);
+        verify(repo).save(captor.capture());
+
+        // Expected: note should match input parameter "important_note"
+        // Actual: note is hardcoded to "0" → FAIL
+        assertEquals("important_note", captor.getValue().getNote());
+    }
+
+    // ==================== TC_RS_030 ====================
+    @Test
+    @DisplayName("TC_RS_030: listPost - BUG - exception should return 500, not 404")
+    void testListPost_ExceptionShouldReturn500() {
+        // BUG: line 157 sets httpStatus = HttpStatus.NOT_FOUND on exception
+        // Correct behavior: server errors should return 500 INTERNAL_SERVER_ERROR
+        PageableModel pageableModel = new PageableModel();
+        pageableModel.setPage(1);
+        pageableModel.setSize(10);
+
+        when(tokenWrapper.getUid()).thenReturn(1L);
+        when(jobRepo.findJobsByUserId(anyLong(), any(Pageable.class)))
+                .thenThrow(new RuntimeException("DB error"));
+
+        ResponseEntity response = recruiterService.listPost(pageableModel);
+
+        assertNotNull(response);
+        // Expected: should return 500 for internal errors
+        // Actual: returns 404 NOT_FOUND → FAIL
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+    }
+
+    // ==================== TC_RS_031 ====================
+    @Test
+    @DisplayName("TC_RS_031: addNewRecruiter - BUG - null entity should be validated")
+    void testAddNewRecruiter_NullEntity() {
+        // BUG: no input validation - null entity passed directly to repo.save()
+        // repo.save(null) with Mockito returns null → isSaved is null → returns NOT_MODIFIED
+        // But correct behavior should be 400 BAD_REQUEST for null input
+
+        ResponseEntity<ResponseObject> response = recruiterService.addNewRecruiter(null);
+
+        // Expected: should validate input and return 400 BAD_REQUEST
+        // Actual: returns 304 NOT_MODIFIED → FAIL
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 }

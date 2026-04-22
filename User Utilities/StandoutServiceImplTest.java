@@ -354,4 +354,26 @@ class StandoutServiceImplTest {
         assertNotNull(resp);
         assertEquals(HttpStatus.NOT_MODIFIED, resp.getStatusCode());
     }
+
+    // ==================== TC_SET_008 ====================
+    @Test
+    @DisplayName("TC_SET_008: getSettings - BUG - null keywords in Settings causes NPE")
+    void testGetSettings_NullKeywords() {
+        // BUG: settings.getKeywords().equals("ACTIVE_FEE") throws NPE when keywords is null
+        // No null-check before calling .equals() on keywords field
+        Settings s = new Settings();
+        s.setKeywords(null);
+        s.setData("100");
+
+        when(settingsRepo.findAll()).thenReturn(List.of(s));
+
+        // Expected: should handle null keywords gracefully and return 200 OK
+        // Actual: NPE on keywords.equals() → either crash or wrong behavior
+        ResponseEntity<ResponseObject> resp = settingsImpl.getSettings();
+        assertNotNull(resp);
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        // The SettingDTO should still be returned with null fields
+        assertNotNull(resp.getBody());
+        assertNotNull(resp.getBody().getData());
+    }
 }

@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import static com.resourceservice.utilsmodule.constant.Constant.*;
+import static com.jober.utilsservice.constant.Constant.BONUS_POINT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -50,18 +51,22 @@ class RecruiterManagementImplTest {
         // Common setup if needed
     }
 
+    private RecruiterManagementDTO buildDto(Long id, String comment, Long freelancerId, Integer ratingStar, String note) {
+        RecruiterManagementDTO dto = new RecruiterManagementDTO();
+        dto.setId(id);
+        dto.setComment(comment);
+        dto.setFreelancerId(freelancerId);
+        dto.setRatingStar(ratingStar);
+        dto.setNote(note);
+        return dto;
+    }
+
     // ==================== TC_RM_001 ====================
     @Test
     @DisplayName("TC_RM_001: saveRecruiterManagement - Happy path - Create new RecruiterManagement")
     void testSaveRecruiterManagement_CreateNew_Success() {
         // Arrange
-        RecruiterManagementDTO dto = RecruiterManagementDTO.builder()
-                .id(null)
-                .comment("Good")
-                .freelancerId(10L)
-                .ratingStar(5)
-                .note("note1")
-                .build();
+        RecruiterManagementDTO dto = buildDto(null, "Good", 10L, 5, "note1");
 
         when(tokenWrapper.getUid()).thenReturn(1L);
 
@@ -98,13 +103,7 @@ class RecruiterManagementImplTest {
     @DisplayName("TC_RM_002: saveRecruiterManagement - Happy path - Update existing RecruiterManagement")
     void testSaveRecruiterManagement_Update_Success() {
         // Arrange
-        RecruiterManagementDTO dto = RecruiterManagementDTO.builder()
-                .id(5L)
-                .comment("Updated")
-                .freelancerId(10L)
-                .ratingStar(3)
-                .note("note2")
-                .build();
+        RecruiterManagementDTO dto = buildDto(5L, "Updated", 10L, 3, "note2");
 
         when(tokenWrapper.getUid()).thenReturn(1L);
 
@@ -136,13 +135,7 @@ class RecruiterManagementImplTest {
     @DisplayName("TC_RM_003: saveRecruiterManagement - Edge case - repo.save() returns null")
     void testSaveRecruiterManagement_SaveReturnsNull() {
         // Arrange
-        RecruiterManagementDTO dto = RecruiterManagementDTO.builder()
-                .id(null)
-                .comment("Test")
-                .freelancerId(10L)
-                .ratingStar(5)
-                .note("n")
-                .build();
+        RecruiterManagementDTO dto = buildDto(null, "Test", 10L, 5, "n");
 
         when(tokenWrapper.getUid()).thenReturn(1L);
         when(recruiterManagementRepo.save(any(RecruiterManagement.class))).thenReturn(null);
@@ -164,13 +157,7 @@ class RecruiterManagementImplTest {
     @DisplayName("TC_RM_004: saveRecruiterManagement - Edge case - null comment and note fields")
     void testSaveRecruiterManagement_NullOptionalFields() {
         // Arrange
-        RecruiterManagementDTO dto = RecruiterManagementDTO.builder()
-                .id(null)
-                .comment(null)
-                .freelancerId(10L)
-                .ratingStar(0)
-                .note(null)
-                .build();
+        RecruiterManagementDTO dto = buildDto(null, null, 10L, 0, null);
 
         when(tokenWrapper.getUid()).thenReturn(1L);
 
@@ -196,13 +183,7 @@ class RecruiterManagementImplTest {
     @DisplayName("TC_RM_005: saveRecruiterManagement - Boundary - ratingStar = 0")
     void testSaveRecruiterManagement_RatingStarZero() {
         // Arrange
-        RecruiterManagementDTO dto = RecruiterManagementDTO.builder()
-                .id(null)
-                .comment("c")
-                .freelancerId(1L)
-                .ratingStar(0)
-                .note("n")
-                .build();
+        RecruiterManagementDTO dto = buildDto(null, "c", 1L, 0, "n");
 
         when(tokenWrapper.getUid()).thenReturn(1L);
         RecruiterManagement savedEntity = RecruiterManagement.builder().id(1L).build();
@@ -226,13 +207,7 @@ class RecruiterManagementImplTest {
     @DisplayName("TC_RM_006: saveRecruiterManagement - Verify saveWallet is called with correct userId")
     void testSaveRecruiterManagement_VerifySaveWalletUserId() {
         // Arrange
-        RecruiterManagementDTO dto = RecruiterManagementDTO.builder()
-                .id(null)
-                .comment("c")
-                .freelancerId(1L)
-                .ratingStar(5)
-                .note("n")
-                .build();
+        RecruiterManagementDTO dto = buildDto(null, "c", 1L, 5, "n");
 
         when(tokenWrapper.getUid()).thenReturn(99L);
         RecruiterManagement savedEntity = RecruiterManagement.builder().id(1L).build();
@@ -254,13 +229,7 @@ class RecruiterManagementImplTest {
     @DisplayName("TC_RM_007: saveRecruiterManagement - Verify entity fields mapping")
     void testSaveRecruiterManagement_FieldMapping() {
         // Arrange
-        RecruiterManagementDTO dto = RecruiterManagementDTO.builder()
-                .id(3L)
-                .comment("c1")
-                .freelancerId(20L)
-                .ratingStar(4)
-                .note("n1")
-                .build();
+        RecruiterManagementDTO dto = buildDto(3L, "c1", 20L, 4, "n1");
 
         when(tokenWrapper.getUid()).thenReturn(2L);
         RecruiterManagement savedEntity = RecruiterManagement.builder().id(3L).build();

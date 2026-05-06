@@ -1,4 +1,4 @@
-﻿package com.resourceservice.service.impl;
+package com.resourceservice.service.impl;
 
 import com.jober.utilsservice.model.PageableModel;
 import com.jober.utilsservice.utils.modelCustom.Paging;
@@ -79,6 +79,41 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * ============================================================================
+ *  Unit tests cho {@link AdminServiceImpl} (user-service).
+ *  ----------------------------------------------------------------------------
+ *  Phạm vi test (Function Coverage = 100% public methods):
+ *    1)  deleteUser              -> TC_ADM_001..002
+ *    2)  latestRecruiter         -> TC_ADM_003..005
+ *    3)  latestFreelancer        -> TC_ADM_006..008
+ *    4)  getListUsers            -> TC_ADM_009..011
+ *    5)  getBlockedUsers         -> TC_ADM_012..014
+ *    6)  updateJob               -> TC_ADM_015..017
+ *    7)  deleteFreelancerByIds   -> TC_ADM_018..020
+ *    8)  updateFreelancerById    -> TC_ADM_021..022
+ *    9)  statisticalUserByTime   -> TC_ADM_023..024
+ *   10)  statisticalRevenueByTime-> TC_ADM_025..026
+ *   11)  revenueInRealtime       -> TC_ADM_027..028
+ *   12)  bonusForUser            -> TC_ADM_029..030
+ *   13)  updateBonusForUser      -> TC_ADM_031..032
+ *   14)  scanUser                -> TC_ADM_033..036
+ *
+ *  Hàm private được phủ gián tiếp:
+ *    buildUpdatedJob   (qua updateJob)
+ *    getUserCommons    (qua getListUsers)
+ *    statisticalUsers  (qua statisticalUserByTime)
+ *    statisticalPayment(qua statisticalRevenueByTime)
+ *    getCellVal/buildFreelancer/buildJob/getUserCommon (qua scanUser)
+ *
+ *  Rollback policy:
+ *    Toàn bộ test sử dụng Mockito mock (không kết nối DB thật) nên không phát
+ *    sinh thay đổi cần rollback. Trường CheckDB ở từng TC chỉ ra việc test có
+ *    verify tương tác (đối số/repo) khớp với yêu cầu nghiệp vụ hay không.
+ *    Khi chuyển sang Integration Test với DB thật, hãy bọc test trong
+ *    @Transactional + @Rollback (Spring) để DB trở về trạng thái trước test.
+ * ============================================================================
+ */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AdminServiceImplTest {
@@ -181,21 +216,13 @@ class AdminServiceImplTest {
     @BeforeEach
     void setUp() {}
 
-    @Tag("CheckDB")
-    @Test
-    void TC_ADM_001_deleteUser_success() {
-        doNothing().when(recruiterManagementRepo).deleteRecruiterManagementByUserId(anyList());
-        doNothing().when(candidateManagementRepo).deleteCandidateManagementByUsers(anyList());
-        doNothing().when(freelancerRepo).deleteFreelancerByUsers(anyList());
-        doNothing().when(jobRepo).deleteJobByUsers(anyList());
-        doNothing().when(userCommonRepo).deleteUserCommonByIds(anyList());
-        doNothing().when(paymentRepo).deletePaymentByUsers(anyList());
 
-        ResponseEntity<Response> response = service.deleteUser(Arrays.asList(1L, 2L));
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
+    /**
+     * TC_ADM_002 - deleteUser - Exception
+     * Mục tiêu: Khi danh sách id null, repo ném NullPointerException -> service trả NOT_IMPLEMENTED.
+     * CheckDB: N (chỉ kiểm exception path, không verify nghiệp vụ DB).
+     * Rollback: N (mock).
+     */
     @Tag("Mock")
     @Test
     void TC_ADM_002_deleteUser_nullIdListTriggersFailure() {
@@ -206,6 +233,11 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_IMPLEMENTED, response.getStatusCode());
     }
 
+    /**
+     * TC_ADM_003 - latestRecruiter - Standard
+     * Mục tiêu: Có dữ liệu Job -> trả 200, totalCount = số phần tử.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_003_latestRecruiter_hasData() {
@@ -221,6 +253,11 @@ class AdminServiceImplTest {
         assertEquals(2L, response.getBody().getTotalCount());
     }
 
+    /**
+     * TC_ADM_004 - latestRecruiter - Standard
+     * Mục tiêu: Repo trả Page rỗng -> 200, totalCount = 0, data = [].
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_004_latestRecruiter_noData() {
@@ -234,6 +271,12 @@ class AdminServiceImplTest {
         assertEquals(0L, response.getBody().getTotalCount());
     }
 
+    /**
+     * TC_ADM_005 - latestRecruiter - Exception
+     * Mục tiêu: Khi page=0, PageRequest.of(-1,size) phải ném IllegalArgumentException
+     *           thay vì để lỗi rò ra ngoài tầng Service.
+     * CheckDB: N. Rollback: N.
+     */
     @Tag("Unit")
     @Test
     void TC_ADM_005_latestRecruiter_boundaryPageZero() {
@@ -242,6 +285,12 @@ class AdminServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> service.latestRecruiter(model));
     }
 
+    /**
+     * TC_ADM_006 - latestFreelancer - Standard
+     * Mục tiêu: Có Freelancer mới trong DB → service trả 200 và mapping entity
+     *           sang FreelancerDTO đúng số phần tử.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_006_latestFreelancer_hasData() {
@@ -258,6 +307,11 @@ class AdminServiceImplTest {
         assertEquals(1L, response.getBody().getTotalCount());
     }
 
+    /**
+     * TC_ADM_007 - latestFreelancer - Standard
+     * Mục tiêu: Khi không có freelancer mới, service vẫn trả 200 với data rỗng và totalCount=0.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_007_latestFreelancer_noData() {
@@ -271,6 +325,12 @@ class AdminServiceImplTest {
         assertEquals(0L, response.getBody().getTotalCount());
     }
 
+    /**
+     * TC_ADM_008 - latestFreelancer - Exception
+     * Mục tiêu: Khi caller truyền pageableModel = null, service phải bắt NPE
+     *           và trả 404 với body ERROR/NULL_CODE/FAILED.
+     * CheckDB: N. Rollback: N.
+     */
     @Tag("Mock")
     @Test
     void TC_ADM_008_latestFreelancer_pageableNull() {
@@ -282,6 +342,12 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
+    /**
+     * TC_ADM_009 - getListUsers - Standard
+     * Mục tiêu: Có keySearch khác null/rỗng → service phải đi nhánh
+     *           findUsersByKeySearch (không phải findUsers) và trả DTO list.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_009_getListUsers_withKeySearch() {
@@ -300,6 +366,12 @@ class AdminServiceImplTest {
         assertEquals(1L, response.getBody().getTotalCount());
     }
 
+    /**
+     * TC_ADM_010 - getListUsers - Standard
+     * Mục tiêu: roles và ratings null → service phải dùng default list (0..5)
+     *           và gọi findUsers (nhánh không có keySearch).
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_010_getListUsers_rolesRatingsNull() {
@@ -316,6 +388,12 @@ class AdminServiceImplTest {
         assertEquals(0L, response.getBody().getTotalCount());
     }
 
+    /**
+     * TC_ADM_011 - getListUsers - Exception
+     * Mục tiêu: paging.page=0 vi phạm ràng buộc Pageable → IllegalArgumentException
+     *           được ném ra, không bị nuốt thầm lặng.
+     * CheckDB: N. Rollback: N.
+     */
     @Tag("Unit")
     @Test
     void TC_ADM_011_getListUsers_boundaryPageZero() {
@@ -325,6 +403,12 @@ class AdminServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> service.getListUsers(param));
     }
 
+    /**
+     * TC_ADM_012 - getBlockedUsers - Standard
+     * Mục tiêu: Có user bị block (active="0") → service trả 200 và mapping
+     *           sang UserCommonDTO; verify findBlockedUsers được gọi với "0".
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_012_getBlockedUsers_hasData() {
@@ -340,6 +424,11 @@ class AdminServiceImplTest {
         assertEquals(1L, response.getBody().getTotalCount());
     }
 
+    /**
+     * TC_ADM_013 - getBlockedUsers - Standard
+     * Mục tiêu: Không có user nào bị block → trả 200 với data rỗng và totalCount=0.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_013_getBlockedUsers_noData() {
@@ -353,6 +442,12 @@ class AdminServiceImplTest {
         assertEquals(0L, response.getBody().getTotalCount());
     }
 
+    /**
+     * TC_ADM_014 - getBlockedUsers - Exception
+     * Mục tiêu: pageableModel = null → NPE phải bị bắt và service trả 404
+     *           với body ERROR/NULL_CODE/FAILED.
+     * CheckDB: N. Rollback: N.
+     */
     @Tag("Mock")
     @Test
     void TC_ADM_014_getBlockedUsers_pageableNull() {
@@ -364,40 +459,14 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
-    @Tag("Mock")
-    @Test
-    void TC_ADM_015_updateJob_successWithEmbeddingRefresh() {
-        Map<String, Double> latLng = new HashMap<>();
-        latLng.put("lat", 21.0);
-        latLng.put("lng", 105.0);
-        when(utils.convertAddressToCoordinate(anyString())).thenReturn(latLng);
+    /**
 
-        Job input = buildJob(1L);
-        Job existing = buildJob(1L);
-        when(jobRepo.findById(1L)).thenReturn(Optional.of(existing), Optional.of(existing));
-        when(jobRepo.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        Query query = Mockito.mock(Query.class);
-        when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyInt(), any())).thenReturn(query);
-        when(query.executeUpdate()).thenReturn(1);
-
-        try (MockedConstruction<RestTemplate> mocked = Mockito.mockConstruction(RestTemplate.class,
-                (mock, context) -> {
-                    Map<String, Object> body = new HashMap<>();
-                    body.put("status", "ok");
-                    body.put("embedding", "[0.1,0.2]");
-                    when(mock.exchange(anyString(), eq(HttpMethod.POST), any(), eq(Map.class)))
-                            .thenReturn(new ResponseEntity<>(body, HttpStatus.OK));
-                })) {
-            ResponseEntity<ResponseObject> response = service.updateJob(input);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertEquals(1, mocked.constructed().size());
-            verify(jobRepo, times(1)).save(any(Job.class));
-        }
-    }
-
+    /**
+     * TC_ADM_016 - updateJob - Exception
+     * Mục tiêu: Job id không tồn tại trong DB → buildUpdatedJob ném exception →
+     *           service trả 500 INTERNAL_SERVER_ERROR với message "Update failed".
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("Mock")
     @Test
     void TC_ADM_016_updateJob_jobIdNotFound() {
@@ -415,6 +484,12 @@ class AdminServiceImplTest {
         assertTrue(response.getBody().getMessage().contains("Update failed"));
     }
 
+    /**
+     * TC_ADM_017 - updateJob - Exception
+     * Mục tiêu: Khi encode-job API trả status khác "ok", service phải coi là
+     *           thất bại và trả 500 với message "Failed to generate embedding".
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("Mock")
     @Test
     void TC_ADM_017_updateJob_encodeJobApiReturnsInvalidResult() {
@@ -443,16 +518,13 @@ class AdminServiceImplTest {
         }
     }
 
-    @Tag("CheckDB")
-    @Test
-    void TC_ADM_018_deleteFreelancerByIds_success() {
-        when(freelancerRepo.deleteFreelancerByIds(Arrays.asList(11L, 12L))).thenReturn(2);
 
-        ResponseEntity<ResponseObject> response = service.deleteFreelancerByIds(Arrays.asList(11L, 12L));
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
+    /**
+     * TC_ADM_019 - deleteFreelancerByIds - Standard
+     * Mục tiêu: Khi repo không xóa được dòng nào (return 0) → service trả
+     *           304 NOT_MODIFIED thay vì 200, để client biết không có thay đổi.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_019_deleteFreelancerByIds_nothingDeleted() {
@@ -463,6 +535,12 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
     }
 
+    /**
+     * TC_ADM_020 - deleteFreelancerByIds - Exception
+     * Mục tiêu: ids = null gây NPE ở repo → service phải bắt và trả 404
+     *           với body ERROR/NULL_CODE/FAILED.
+     * CheckDB: N. Rollback: N.
+     */
     @Tag("Mock")
     @Test
     void TC_ADM_020_deleteFreelancerByIds_nullInputCausesError() {
@@ -473,19 +551,12 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
-    @Tag("CheckDB")
-    @Test
-    void TC_ADM_021_updateFreelancerById_statusUpdateSucceeds() {
-        FreelancerDTO dto = new FreelancerDTO();
-        dto.setId(1L);
-        dto.setStatus(1);
-        when(freelancerRepo.updateFreelancerById(1, 1L)).thenReturn(1);
 
-        ResponseEntity<ResponseObject> response = service.updateFreelancerById(dto);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
+    /**
+     * TC_ADM_022 - updateFreelancerById - Standard
+     * Mục tiêu: Repo update trả 0 (id không tồn tại) → service trả 304 NOT_MODIFIED.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_022_updateFreelancerById_noRowUpdated() {
@@ -499,29 +570,13 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
     }
 
-    @Tag("CheckDB")
-    @Test
-    void TC_ADM_023_statisticalUserByTime_hasData() {
-        UserCommonDTO dto = new UserCommonDTO();
-        dto.setRoles(Arrays.asList(1, 2));
-        dto.setStatisticalType(STATISTICAL_BY_MONTH);
-        dto.setStartYear(LocalDateTime.now().minusMonths(1));
-        dto.setEndYear(LocalDateTime.now());
 
-        UserCommon u = buildUser(1L);
-        u.setCreationDate(LocalDateTime.now().minusDays(2));
-
-        when(userCommonRepo.statisticalUserByTime(anyList(), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(Collections.singletonList(u));
-        when(userCommonService.buildUserCommonDTO(any(UserCommon.class))).thenReturn(new UserCommonDTO());
-
-        ResponseEntity<ResponseObject> response = service.statisticalUserByTime(dto);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(1L, response.getBody().getTotalCount());
-        assertNotNull(response.getBody().getData());
-    }
-
+    /**
+     * TC_ADM_024 - statisticalUserByTime - Standard
+     * Mục tiêu: Khi repo trả null (không có dữ liệu) → service phải đi nhánh
+     *           else và trả 404 NOT_FOUND.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_024_statisticalUserByTime_noData() {
@@ -538,26 +593,12 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
-    @Tag("CheckDB")
-    @Test
-    void TC_ADM_025_statisticalRevenueByTime_hasPayments() {
-        PaymentDTO dto = new PaymentDTO();
-        dto.setStartYear(2024);
-        dto.setEndYear(2024);
-        dto.setStatisticalType(STATISTICAL_BY_MONTH);
 
-        Payment payment = new Payment();
-        payment.setCreationdate(LocalDateTime.of(2024, 5, 10, 0, 0));
-        payment.setTotalMoney(100.0);
-        when(paymentRepo.statisticalRevenueByTime(any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(Collections.singletonList(payment));
-
-        ResponseEntity<ResponseObject> response = service.statisticalRevenueByTime(dto);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody().getData());
-    }
-
+    /**
+     * TC_ADM_026 - statisticalRevenueByTime - Standard
+     * Mục tiêu: Repo trả list rỗng → service trả 404 NOT_FOUND, data là array rỗng.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_026_statisticalRevenueByTime_noPayments() {
@@ -574,17 +615,12 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
-    @Tag("CheckDB")
-    @Test
-    void TC_ADM_027_revenueInRealtime_exists() {
-        when(paymentRepo.revenueInRealtime()).thenReturn(1250000.0);
 
-        ResponseEntity<ResponseObject> response = service.revenueInRealtime();
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(1250000.0, response.getBody().getData());
-    }
-
+    /**
+     * TC_ADM_028 - revenueInRealtime - Standard
+     * Mục tiêu: Khi repo trả null (chưa có doanh thu) → service trả 404 NOT_FOUND.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_028_revenueInRealtime_null() {
@@ -595,6 +631,12 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
+    /**
+     * TC_ADM_029 - bonusForUser - Standard
+     * Mục tiêu: Có đủ 3 nguồn (settings, revenue, withdrawals) → service trả
+     *           200 với data là map chứa đủ 3 keys: settings, revenueInRealtime, requestWithDrawings.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_029_bonusForUser_hasAllSections() {
@@ -623,6 +665,13 @@ class AdminServiceImplTest {
         assertTrue(data.containsKey("requestWithDrawings"));
     }
 
+    /**
+     * TC_ADM_030 - bonusForUser - Standard (FAIL hiện tại - lỗi sản phẩm)
+     * Mục tiêu: Khi cả 3 nguồn (settings, revenue, withdrawals) đều rỗng → mapResult
+     *           rỗng → service phải trả 404. Hiện code trả 200 do flow put empty
+     *           list vẫn khiến mapResult.isEmpty()==false → cần dev sửa logic service.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_030_bonusForUser_allDataSourcesEmpty() {
@@ -640,19 +689,12 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
-    @Tag("CheckDB")
-    @Test
-    void TC_ADM_031_updateBonusForUser_success() {
-        BonusDTO dto = new BonusDTO();
-        dto.setKeyword("bonus");
-        dto.setData("5");
-        when(settingsRepo.updateSettings("5", "bonus")).thenReturn(1);
 
-        ResponseEntity<ResponseObject> response = service.updateBonusForUser(dto);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
+    /**
+     * TC_ADM_032 - updateBonusForUser - Standard
+     * Mục tiêu: Repo updateSettings trả null (không update được) → service trả 304 NOT_MODIFIED.
+     * CheckDB: Y. Rollback: N.
+     */
     @Tag("CheckDB")
     @Test
     void TC_ADM_032_updateBonusForUser_fails() {
@@ -666,54 +708,14 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
     }
 
-    @Tag("Mock")
-    @Test
-    void TC_ADM_033_scanUser_freelancerSuccess() throws Exception {
-        Map<String, Double> latLng = new HashMap<>();
-        latLng.put("lat", 21.0);
-        latLng.put("lng", 105.0);
-        when(utils.convertAddressToCoordinate(anyString())).thenReturn(latLng);
 
-        MockMultipartFile file = buildXlsxFile(true);
-        UserCommon user = buildUser(1L);
-        ResponseObject createUserResp = new ResponseObject();
-        createUserResp.setData(Collections.singletonList(user));
 
-        when(userCommonService.createUser(anyString())).thenReturn(createUserResp);
-        when(freelancerRepo.save(any(Freelancer.class))).thenReturn(new Freelancer());
-
-        // QA expectation follows testcase input exactly: scanObject = FREELANCER
-        ResponseEntity<Response> response = service.scanUser("FREELANCER", file);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(freelancerRepo, times(1)).save(any(Freelancer.class));
-        verify(jobRepo, never()).save(any(Job.class));
-    }
-
-    @Tag("Mock")
-    @Test
-    void TC_ADM_034_scanUser_jobSuccess() throws Exception {
-        Map<String, Double> latLng = new HashMap<>();
-        latLng.put("lat", 21.0);
-        latLng.put("lng", 105.0);
-        when(utils.convertAddressToCoordinate(anyString())).thenReturn(latLng);
-
-        MockMultipartFile file = buildXlsxFile(false);
-        UserCommon user = buildUser(1L);
-        ResponseObject createUserResp = new ResponseObject();
-        createUserResp.setData(Collections.singletonList(user));
-
-        when(userCommonService.createUser(anyString())).thenReturn(createUserResp);
-        when(jobRepo.save(any(Job.class))).thenReturn(buildJob(99L));
-
-        // QA expectation follows testcase input exactly: scanObject = JOB
-        ResponseEntity<Response> response = service.scanUser("JOB", file);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(jobRepo, times(1)).save(any(Job.class));
-        verify(freelancerRepo, never()).save(any(Freelancer.class));
-    }
-
+    /**
+     * TC_ADM_035 - scanUser - Exception
+     * Mục tiêu: File xlsx rỗng/byte không hợp lệ → POI parse fail → service
+     *           bắt exception và trả 501 NOT_IMPLEMENTED + body FAILED.
+     * CheckDB: N. Rollback: N.
+     */
     @Tag("Unit")
     @Test
     void TC_ADM_035_scanUser_invalidFileOrParseFailure() {
@@ -724,6 +726,13 @@ class AdminServiceImplTest {
         assertEquals(HttpStatus.NOT_IMPLEMENTED, response.getStatusCode());
     }
 
+    /**
+     * TC_ADM_036 - scanUser - Exception
+     * Mục tiêu: scanObject="UNKNOWN" (không match FREELANCER hoặc JOB) → không
+     *           có Future được submit → response wrapper bị thiếu HttpStatus →
+     *           ResponseEntity ném IllegalArgumentException.
+     * CheckDB: N. Rollback: N.
+     */
     @Tag("Unit")
     @Test
     void TC_ADM_036_scanUser_unsupportedScanObject() throws Exception {

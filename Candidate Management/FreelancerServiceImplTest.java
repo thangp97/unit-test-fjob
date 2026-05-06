@@ -73,6 +73,28 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * ============================================================================
+ *  Unit Tests cho FreelancerServiceImpl (user-service).
+ *  ----------------------------------------------------------------------------
+ *  Scope UT: 21 public methods - mock thuan voi Mockito.
+ *  TC `Exception`: TC_FL_001, 002, 004, 005, 006, 007, 021, 027, 032, 033.
+ *  TC `Standard` chi verify mock/logic: 003, 009-011, 013-020, 022-023, 025,
+ *                                        026, 028-031, 034-041, 043.
+ *
+ *  TC chuyen sang IT (xem {@link FreelancerServiceImplIT}):
+ *    - TC_FL_008 deleteByIds_success         (write DB - bulk update INACTIVE)
+ *    - TC_FL_012 getListFreelancer_hasData   (JPQL paging tren DB that)
+ *    - TC_FL_024 getFreelancerByUserIdAndJobDefaultId_existing (composite lookup)
+ *    - TC_FL_042 getOrganizationDetail_found (real org lookup)
+ *
+ *  Rollback: N cho moi TC o file nay (mock thuan, khong cham DB that).
+ *
+ *  Note: 3 TC (001/004/006) ban dau phan loai "Standard _success" nhung thuc te
+ *  assertThrows(RuntimeException) -> da reclassify thanh `Exception` cho khop
+ *  implementation (per confirm 2a cua user).
+ * ============================================================================
+ */
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 class FreelancerServiceImplTest {
@@ -120,8 +142,14 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_001 -> TC_FL_005: CREATE FREELANCER
     // =========================================================================
-
-    @Tag("Mock")
+    /**
+     * TC_FL_001 - createFreelancer - Exception
+     * Muc tieu: Khi tao freelancer voi payload hop le nhung dependency noi bo
+     *           chua init day du, service nem RuntimeException (reclassified
+     *           tu Standard sang Exception cho khop implementation thuc te).
+     * CheckDB: Y (verify mock interactions truoc khi exception)
+     * Rollback: N
+     */
     @Test
     void TC_FL_001_createFreelancer_success() {
         FreelancerCreateDTO dto = new FreelancerCreateDTO();
@@ -137,15 +165,23 @@ class FreelancerServiceImplTest {
 
         assertThrows(RuntimeException.class, () -> service.createFreelancer(dto));
     }
-
-    @Tag("Unit")
+    /**
+     * TC_FL_002 - createFreelancer_missingRequiredFields - Exception
+     * Muc tieu: Khi payload thieu field bat buoc (userId=null), service phai nem NullPointerException.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_002_createFreelancer_missingRequiredFields() {
         FreelancerCreateDTO dto = new FreelancerCreateDTO(); 
         assertThrows(NullPointerException.class, () -> service.createFreelancer(dto));
     }
-
-    @Tag("Mock")
+    /**
+     * TC_FL_003 - createFreelancer_duplicate - Standard
+     * Muc tieu: Khi freelancer da ton tai (duplicate userId+jobDefaultId), service phai tra EXISTED.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_003_createFreelancer_duplicate() {
         FreelancerCreateDTO dto = new FreelancerCreateDTO();
@@ -158,8 +194,14 @@ class FreelancerServiceImplTest {
         assertEquals("EXISTED", response.getBody().getCode());
         verify(freelancerRepo, never()).saveAndFlush(any());
     }
-
-    @Tag("Mock")
+    /**
+     * TC_FL_004 - createFreelancerV2 - Exception
+     * Muc tieu: Khi tao freelancer V2 voi payload hop le nhung dependency
+     *           noi bo chua init, service nem RuntimeException (reclassified
+     *           tu Standard sang Exception).
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_004_createFreelancerV2_success() {
         FreelancerCreateFullDTO dto = new FreelancerCreateFullDTO();
@@ -174,8 +216,12 @@ class FreelancerServiceImplTest {
 
         assertThrows(RuntimeException.class, () -> service.createFreelancerV2(dto));
     }
-
-    @Tag("Unit")
+    /**
+     * TC_FL_005 - createFreelancerV2_invalidPayload - Exception
+     * Muc tieu: Khi payload V2 rong, service phai nem RuntimeException.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_005_createFreelancerV2_invalidPayload() {
         FreelancerCreateFullDTO dto = new FreelancerCreateFullDTO(); 
@@ -185,8 +231,14 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_006 -> TC_FL_007: UPDATE FREELANCER
     // =========================================================================
-
-    @Tag("Mock")
+    /**
+     * TC_FL_006 - updateFreelancer - Exception
+     * Muc tieu: Khi update freelancer voi id ton tai nhung dependency noi bo
+     *           thieu, service nem RuntimeException (reclassified tu Standard
+     *           sang Exception).
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_006_updateFreelancer_success() {
         FreelancerDTO dto = new FreelancerDTO();
@@ -203,8 +255,12 @@ class FreelancerServiceImplTest {
 
         assertThrows(RuntimeException.class, () -> service.updateFreelancer(dto));
     }
-
-    @Tag("Mock")
+    /**
+     * TC_FL_007 - updateFreelancer_notFound - Exception
+     * Muc tieu: Khi freelancerId khong ton tai, service phai tra 500 ERROR.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_007_updateFreelancer_notFound() {
         FreelancerDTO dto = new FreelancerDTO();
@@ -220,8 +276,12 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_008 -> TC_FL_011: DELETE OPERATIONS
     // =========================================================================
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_008 - deleteByIds_success - Standard
+     * Muc tieu: Khi xoa nhieu freelancer hop le, service phai goi updateByIds va tra UPDATED.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_008_deleteByIds_success() {
         List<Long> ids = Arrays.asList(1L, 2L);
@@ -230,8 +290,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<Response> response = service.deleteByIds(ids);
         assertEquals(ResponseMessageConstant.UPDATED, response.getBody().getCode());
     }
-
-    @Tag("Unit")
+    /**
+     * TC_FL_009 - deleteByIds_empty - Standard
+     * Muc tieu: Khi ids rong, repo tra 0 rows affected -> service tra NOT_MODIFIED.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_009_deleteByIds_empty() {
         List<Long> ids = new ArrayList<>();
@@ -240,15 +304,23 @@ class FreelancerServiceImplTest {
         ResponseEntity<Response> response = service.deleteByIds(ids);
         assertEquals(ResponseMessageConstant.NOT_MODIFIED, response.getBody().getCode());
     }
-
-    @Tag("Mock")
+    /**
+     * TC_FL_010 - deleteCVsByUserIdAndCvNames_success - Standard
+     * Muc tieu: Khi xoa CV hop le, service phai goi dung repo method.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_010_deleteCVsByUserIdAndCvNames_success() {
         service.deleteCVsByUserIdAndCvNames(1L, Arrays.asList("a.pdf"));
         verify(freelancerRepo, times(1)).deleteByUserIdAndCvIn(1L, Arrays.asList("a.pdf"));
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_011 - deleteCVsByUserIdAndCvNames_notFound - Standard
+     * Muc tieu: Khi CV name khong ton tai, operation van an toan (khong crash).
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_011_deleteCVsByUserIdAndCvNames_notFound() {
         service.deleteCVsByUserIdAndCvNames(1L, Arrays.asList("non-exist.pdf"));
@@ -259,8 +331,12 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_012 -> TC_FL_023: LISTING & SEARCHING
     // =========================================================================
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_012 - getListFreelancer_hasData - Standard
+     * Muc tieu: Khi co data, service phai tra danh sach freelancer voi paging.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_012_getListFreelancer_hasData() {
         JobParamDTO dto = new JobParamDTO();
@@ -273,8 +349,12 @@ class FreelancerServiceImplTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("200", response.getBody().getCode()); 
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_013 - getListFreelancer_noData - Standard
+     * Muc tieu: Khi khong co data, service van tra 200 voi list rong.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_013_getListFreelancer_noData() {
         JobParamDTO dto = new JobParamDTO();
@@ -285,8 +365,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.getListFreelancer(dto);
         assertEquals("200", response.getBody().getCode()); 
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_014 - getListFreelancerByUserId_hasData - Standard
+     * Muc tieu: Khi userId hop le va co data, service tra danh sach freelancer.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_014_getListFreelancerByUserId_hasData() {
         JobParamDTO dto = new JobParamDTO();
@@ -304,8 +388,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.getListFreelancerByUserId(1L, dto);
         assertEquals("200", response.getBody().getCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_015 - getListFreelancerByUserId_invalidId - Standard
+     * Muc tieu: Khi userId khong co freelancer, service tra NOT_MODIFIED.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_015_getListFreelancerByUserId_invalidId() {
         JobParamDTO dto = new JobParamDTO();
@@ -322,8 +410,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.getListFreelancerByUserId(999L, dto);
         assertEquals("NOT_MODIFIED", response.getBody().getCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_016 - getListFreelancerByUid_success - Standard
+     * Muc tieu: Khi UID hop le, service tra danh sach freelancer dung.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_016_getListFreelancerByUid_success() {
         UserCommonDTO uc = new UserCommonDTO();
@@ -335,8 +427,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.getListFreelancerByUid(new Paging(1, 10));
         assertEquals("200", response.getBody().getCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_017 - listFreelancerByUserId_success - Standard
+     * Muc tieu: Khi userId hop le, service tra danh sach freelancer qua PageableModel.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_017_listFreelancerByUserId_success() {
         UserCommonDTO uc = new UserCommonDTO();
@@ -351,8 +447,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.listFreelancerByUserId(pm);
         assertEquals("200", response.getBody().getCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_018 - listFreelancersByNote_success - Standard
+     * Muc tieu: Khi filter note=shortlist va co data, service tra danh sach matching.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_018_listFreelancersByNote_success() {
         LocationParamsDto dto = new LocationParamsDto();
@@ -370,8 +470,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.listFreelancersByNote("shortlist", dto);
         assertEquals("200", response.getBody().getCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_019 - listFreelancersByNote_noMatches - Standard
+     * Muc tieu: Khi filter note=unknown khong match, service tra NOT_FOUND.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_019_listFreelancersByNote_noMatches() {
         LocationParamsDto dto = new LocationParamsDto();
@@ -383,8 +487,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.listFreelancersByNote("unknown", dto);
         assertEquals("NOT_FOUND", response.getBody().getCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_020 - listCandidate_success - Standard
+     * Muc tieu: Khi co candidate data voi location, service tra danh sach candidate DTOs.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_020_listCandidate_success() {
         LocationParamsDto dto = new LocationParamsDto();
@@ -396,15 +504,23 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.listCandidate(dto);
         assertEquals("200", response.getBody().getCode());
     }
-
-    @Tag("Unit")
+    /**
+     * TC_FL_021 - listCandidate_invalidLocation - Exception
+     * Muc tieu: Khi paging null, service phai nem NullPointerException.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_021_listCandidate_invalidLocation() {
         LocationParamsDto dto = new LocationParamsDto();
         assertThrows(NullPointerException.class, () -> service.listCandidate(dto));
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_022 - newFindJob_success - Standard
+     * Muc tieu: Khi co matching jobs, service tra Freelancer object.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_022_newFindJob_success() {
         FreelancerDTO dto = new FreelancerDTO();
@@ -422,8 +538,12 @@ class FreelancerServiceImplTest {
         Freelancer f = service.newFindJob(dto);
         assertNotNull(f);
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_023 - newFindJob_noMatch - Standard
+     * Muc tieu: Khi dto rong (khong co filter), service van tra Freelancer object mac dinh.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_023_newFindJob_noMatch() {
         FreelancerDTO dto = new FreelancerDTO();
@@ -434,8 +554,12 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_024 -> TC_FL_031: GET & DETAILS
     // =========================================================================
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_024 - getFreelancerByUserIdAndJobDefaultId_existing - Standard
+     * Muc tieu: Khi ton tai freelancer voi userId+jobDefaultId, service phai tra 200.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_024_getFreelancerByUserIdAndJobDefaultId_existing() {
         UserCommonDTO uc = new UserCommonDTO(); uc.setId(1L);
@@ -445,8 +569,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.getFreelancerByUserIdAndJobDefaultId(10L);
         assertEquals("200", response.getBody().getCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_025 - getFreelancerByUserIdAndJobDefaultId_notFound - Standard
+     * Muc tieu: Khi khong ton tai, service phai tra NOT_EXISTED.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_025_getFreelancerByUserIdAndJobDefaultId_notFound() {
         UserCommonDTO uc = new UserCommonDTO(); uc.setId(1L);
@@ -456,8 +584,12 @@ class FreelancerServiceImplTest {
         ResponseEntity<ResponseObject> response = service.getFreelancerByUserIdAndJobDefaultId(99L);
         assertEquals("NOT_EXISTED", response.getBody().getCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_026 - getCandidateInfo_success - Standard
+     * Muc tieu: Khi freelancerId hop le, service tra full candidate profile.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_026_getCandidateInfo_success() {
         CandidateInfoProjectionV2 proj = Mockito.mock(CandidateInfoProjectionV2.class);
@@ -468,8 +600,12 @@ class FreelancerServiceImplTest {
         ResponseEntity response = service.getCandidateInfo(1L, 10L);
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_027 - getCandidateInfo_notFound - Exception
+     * Muc tieu: Khi freelancerId khong ton tai (999L), code bi NPE do goi .getJdId() truoc check null.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_027_getCandidateInfo_notFound() {
         when(freelancerRepo.getByIdAndJobId(999L, 10L)).thenReturn(new ArrayList<>());
@@ -479,8 +615,12 @@ class FreelancerServiceImplTest {
         // Ta dùng assertThrows để test Pass và đánh dấu bug này
         assertThrows(NullPointerException.class, () -> service.getCandidateInfo(999L, 10L));
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_028 - getCandidatePosts_success - Standard
+     * Muc tieu: Khi user co posts, service tra danh sach posts voi paging.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_028_getCandidatePosts_success() {
         CandidateInfoProjection proj = Mockito.mock(CandidateInfoProjection.class);
@@ -490,8 +630,12 @@ class FreelancerServiceImplTest {
         ResponseEntity response = service.getCandidatePosts(new Paging(1, 10));
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_029 - getCandidatePosts_noPosts - Standard
+     * Muc tieu: Khi user khong co posts, service tra page rong.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_029_getCandidatePosts_noPosts() {
         when(freelancerRepo.getByUserId(eq(1L), any(Pageable.class)))
@@ -500,8 +644,12 @@ class FreelancerServiceImplTest {
         ResponseEntity response = service.getCandidatePosts(new Paging(1, 10));
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_030 - jobsHadPostByCandidate_hasData - Standard
+     * Muc tieu: Khi candidate da post jobs, service tra danh sach job-default IDs.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_030_jobsHadPostByCandidate_hasData() {
         when(freelancerRepo.findJobDefaultIdsHavePostByCandidate(1L)).thenReturn(Collections.singletonList(new Job()));
@@ -509,8 +657,12 @@ class FreelancerServiceImplTest {
         ResponseEntity response = service.jobsHadPostByCandidate();
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_031 - jobsHadPostByCandidate_noData - Standard
+     * Muc tieu: Khi candidate chua post, service tra list rong.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_031_jobsHadPostByCandidate_noData() {
         when(freelancerRepo.findJobDefaultIdsHavePostByCandidate(1L)).thenReturn(Collections.emptyList());
@@ -522,15 +674,23 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_032 -> TC_FL_033: RECOMMENDATION
     // =========================================================================
-
-    @Tag("Mock")
+    /**
+     * TC_FL_032 - recommendCandidatesForRecruiter_success - Exception
+     * Muc tieu: Khi goi recommendation service, service throw ResourceAccessException do khong ket noi duoc external API.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_032_recommendCandidatesForRecruiter_success() {
         assertThrows(org.springframework.web.client.ResourceAccessException.class, 
             () -> service.recommendCandidatesForRecruiter(1L, 1, 10));
     }
-
-    @Tag("Mock")
+    /**
+     * TC_FL_033 - recommendCandidatesForRecruiter_fallback - Exception
+     * Muc tieu: Khi recruiter khong hop le, service van throw ResourceAccessException.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_033_recommendCandidatesForRecruiter_fallback() {
         assertThrows(org.springframework.web.client.ResourceAccessException.class, 
@@ -540,8 +700,12 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_034 -> TC_FL_037: CONVERSION & MAPPING
     // =========================================================================
-
-    @Tag("Unit")
+    /**
+     * TC_FL_034 - convertToFreelancer_fullFields - Standard
+     * Muc tieu: Khi convert DTO day du fields sang entity, tat ca truong phai duoc mapping dung.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_034_convertToFreelancer_fullFields() {
         Freelancer existing = new Freelancer();
@@ -557,8 +721,12 @@ class FreelancerServiceImplTest {
         assertEquals("New", res.getName());
         assertEquals("123", res.getPhone());
     }
-
-    @Tag("Unit")
+    /**
+     * TC_FL_035 - convertToFreelancer_nullSafe - Standard
+     * Muc tieu: Khi DTO co fields null, converter phai giu gia tri cu ma khong crash.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_035_convertToFreelancer_nullSafe() {
         Freelancer existing = new Freelancer();
@@ -572,8 +740,12 @@ class FreelancerServiceImplTest {
         assertNotNull(res);
         assertEquals("Old", res.getName()); 
     }
-
-    @Tag("Unit")
+    /**
+     * TC_FL_036 - convertToFreelancerDTO_fullFields - Standard
+     * Muc tieu: Khi convert entity day du sang DTO, tat ca truong phai match.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_036_convertToFreelancerDTO_fullFields() {
         Freelancer f = new Freelancer();
@@ -584,8 +756,12 @@ class FreelancerServiceImplTest {
         assertEquals(1L, res.getId());
         assertEquals("Name", res.getName());
     }
-
-    @Tag("Unit")
+    /**
+     * TC_FL_037 - convertToFreelancerDTO_nullSafe - Standard
+     * Muc tieu: Khi entity co optional fields null, DTO van duoc tao ma khong crash.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_037_convertToFreelancerDTO_nullSafe() {
         Freelancer f = new Freelancer(); 
@@ -596,8 +772,12 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_038 -> TC_FL_041: CSV EXPORT
     // =========================================================================
-
-    @Tag("Unit")
+    /**
+     * TC_FL_038 - candidatesToCsv_hasData - Standard
+     * Muc tieu: Khi co data, CSV output phai chua dung noi dung va header.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_038_candidatesToCsv_hasData() {
         StringWriter sw = new StringWriter();
@@ -605,16 +785,24 @@ class FreelancerServiceImplTest {
         service.candidatesToCsv(sw, Collections.singletonList(c));
         assertTrue(sw.toString().contains("Dev"));
     }
-
-    @Tag("Unit")
+    /**
+     * TC_FL_039 - candidatesToCsv_empty - Standard
+     * Muc tieu: Khi list rong, CSV van phai chua header row.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_039_candidatesToCsv_empty() {
         StringWriter sw = new StringWriter();
         service.candidatesToCsv(sw, Collections.emptyList());
         assertTrue(sw.toString().contains("Name")); 
     }
-
-    @Tag("Mock")
+    /**
+     * TC_FL_040 - listCandidatesCsv_success - Standard
+     * Muc tieu: Khi co data, CSV export phai chua header ID.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_040_listCandidatesCsv_success() {
         LocationParamsDto dto = new LocationParamsDto();
@@ -632,8 +820,12 @@ class FreelancerServiceImplTest {
         service.listCandidatesCsv(sw, dto);
         assertTrue(sw.toString().contains("ID")); 
     }
-
-    @Tag("Mock")
+    /**
+     * TC_FL_041 - listCandidatesCsv_noData - Standard
+     * Muc tieu: Khi khong co data, CSV van chua header.
+     * CheckDB: N
+     * Rollback: N
+     */
     @Test
     void TC_FL_041_listCandidatesCsv_noData() {
         LocationParamsDto dto = new LocationParamsDto();
@@ -647,8 +839,12 @@ class FreelancerServiceImplTest {
     // =========================================================================
     // TC_FL_042 -> TC_FL_043: ORGANIZATION DETAILS
     // =========================================================================
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_042 - getOrganizationDetail_found - Standard
+     * Muc tieu: Khi org ton tai, service phai tra detail voi ten dung.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_042_getOrganizationDetail_found() {
         Organization org = new Organization();
@@ -659,8 +855,12 @@ class FreelancerServiceImplTest {
         OrganizationDetailResponse res = service.getOrganizationDetail(1L, 0, 10);
         assertEquals("OrgA", res.getOrganization().getName());
     }
-
-    @Tag("CheckDB")
+    /**
+     * TC_FL_043 - getOrganizationDetail_notFound - Standard
+     * Muc tieu: Khi org khong ton tai, service tra response voi org=null.
+     * CheckDB: Y
+     * Rollback: N
+     */
     @Test
     void TC_FL_043_getOrganizationDetail_notFound() {
         when(organizationRepo.findById(99L)).thenReturn(Optional.empty());

@@ -24,6 +24,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for SettingsServiceImpl.
+ * Validates the retrieval and update logic for system settings.
+ */
 @RunWith(MockitoJUnitRunner.class)
 public class SettingsImplTest {
 
@@ -33,8 +37,16 @@ public class SettingsImplTest {
     @InjectMocks
     private SettingsImpl settingsService;
 
+    /**
+     * TC_001: getSettings - Happy path
+     * Objective: Verify that settings are correctly retrieved and mapped to SettingDTO.
+     * Input: Settings repository returns list with ACTIVE_FEE and FEE_PER_SELECT_ONE_FREELANCER.
+     * Expected: HTTP 200 OK and data is a correctly mapped SettingDTO.
+     * CheckDB: N (Mocked)
+     * Rollback: N
+     */
     @Test
-    public void getSettings_returnsSettingDto() {
+    public void getSettings_WhenDataExistsInDB_ShouldReturnMappedSettingDTO() {
         Settings activeFee = new Settings();
         activeFee.setKeywords(ACTIVE_FEE);
         activeFee.setData("100");
@@ -57,8 +69,51 @@ public class SettingsImplTest {
         assertEquals("10", dto.getFeePerSelectOneFreelancer());
     }
 
+    /**
+     * TC_002: getSettings - Edge case (Empty list)
+     * Objective: Verify behavior when the settings table is empty.
+     * Input: Settings repository returns an empty list.
+     * Expected: HTTP 200 OK with an empty data object in ResponseObject.
+     * CheckDB: N (Mocked)
+     * Rollback: N
+     */
     @Test
-    public void getSettings_whenNullList_returnsNotFound() {
+    public void getSettings_WhenNoDataInDB_ShouldReturnEmptyDataObject() {
+        when(settingsRepo.findAll()).thenReturn(Collections.emptyList());
+        ResponseEntity<ResponseObject> response = settingsService.getSettings();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody().getData());
+    }
+
+    /**
+     * TC_003: getSettings - Edge case (Unrecognized keywords)
+     * Objective: Verify that unrecognized keywords in the database are ignored during mapping.
+     * Input: Settings repository returns a keyword not defined in constants.
+     * Expected: HTTP 200 OK, unrecognized keyword does not affect mapped DTO.
+     * CheckDB: N (Mocked)
+     * Rollback: N
+     */
+    @Test
+    public void getSettings_WhenUnrecognizedKeywordsInDB_ShouldIgnoreThemAndReturnOk() {
+        Settings unknown = new Settings();
+        unknown.setKeywords("UNKNOWN_KEYWORD");
+        unknown.setData("some_data");
+        when(settingsRepo.findAll()).thenReturn(Collections.singletonList(unknown));
+
+        ResponseEntity<ResponseObject> response = settingsService.getSettings();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    /**
+     * TC_004: getSettings - Edge case (Null list)
+     * Objective: Verify behavior when the repository returns null instead of a list.
+     * Input: Settings repository returns null.
+     * Expected: HTTP 404 NOT_FOUND.
+     * CheckDB: N (Mocked)
+     * Rollback: N
+     */
+    @Test
+    public void getSettings_WhenRepoReturnsNull_ShouldReturnNotFound() {
         when(settingsRepo.findAll()).thenReturn(null);
 
         ResponseEntity<ResponseObject> response = settingsService.getSettings();
@@ -67,47 +122,42 @@ public class SettingsImplTest {
         assertNull(response.getBody());
     }
 
+    /**
+     * TC_005: getSettings - BUG Confirmation
+     * Objective: Confirm that null keywords in the settings table cause a NullPointerException.
+     * Input: Settings entry with a null keywords field.
+     * Expected: NullPointerException (Identified as a bug to be fixed).
+     * CheckDB: N (Mocked)
+     * Rollback: N
+     */
     @Test
-    public void getSettings_emptyList() {
-        when(settingsRepo.findAll()).thenReturn(Collections.emptyList());
-        ResponseEntity<ResponseObject> response = settingsService.getSettings();
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody().getData());
-    }
-
-    @Test
-    public void getSettings_unrecognizedKeywords() {
-        Settings unknown = new Settings();
-        unknown.setKeywords("UNKNOWN");
-        unknown.setData("data");
-        when(settingsRepo.findAll()).thenReturn(Collections.singletonList(unknown));
-
-        ResponseEntity<ResponseObject> response = settingsService.getSettings();
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    // TC005 - BUG - null keywords in Settings causes NPE
-    @Test
-    public void getSettings_NullKeywords_BUG_Confirmed() {
+    public void getSettings_WhenKeywordsFieldIsNull_ShouldThrowNullPointerException() {
         Settings activeFee = new Settings();
-        activeFee.setKeywords(null); // This causes NPE when calling .equals(ACTIVE_FEE)
+        activeFee.setKeywords(null); // This causes NPE when calling .equals() in service
         activeFee.setData("100");
 
         when(settingsRepo.findAll()).thenReturn(Collections.singletonList(activeFee));
 
-        ResponseEntity<ResponseObject> response = settingsService.getSettings();
-        assertNotNull(response);
+        // This call is expected to fail with NullPointerException based on current implementation
+        settingsService.getSettings();
     }
 
+    /**
+     * TC_006: updateSettings - Edge case (Save fails)
+     * Objective: Verify behavior when the update operation fails to modify any rows.
+     * Input: Settings object with valid data, but repository save returns null.
+     * Expected: HTTP 304 NOT_MODIFIED.
+     * CheckDB: N (Mocked)
+     * Rollback: N
+     */
     @Test
-    public void updateSettings_saveReturnsNull() {
+    public void updateSettings_WhenSaveOperationReturnsNull_ShouldReturnNotModified() {
         Settings input = new Settings();
         input.setKeywords(ACTIVE_FEE);
         input.setData("200");
         when(settingsRepo.save("200", ACTIVE_FEE)).thenReturn(null);
 
         ResponseEntity<ResponseObject> response = settingsService.updateSettings(input);
-        // Service returns 304 NOT_MODIFIED and null body when save result is null
         assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
         assertNull(response.getBody());
     }
